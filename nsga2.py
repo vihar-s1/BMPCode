@@ -1,4 +1,5 @@
-import random, numpy as np
+import random
+from objectiveFunc import objFunc1, objFunc2, objFunc3, parameters
 
 INFINITY = 1e20
 #! ASSUMING ALL THE OPTIMIZATION OBJECTIVES ARE OF MAXIMIZATION
@@ -65,8 +66,34 @@ def SORT(paretoFront: list[list[float]], objFunc, k: int) -> list[list[float]]:
     return paretoFront
 
 
-def calculateObjFuncVal(objFunc, paretoFront: list[list[float]]) -> dict[tuple, float]:
-    pass
+def calculateObjFuncVal(objFunc: int, paretoFront: list[list[float]], referencePoint: list[float]) -> float | dict[tuple, float]:
+	"""Calculating objective function values for each of the 3D points in the paretoFront
+
+	Args:
+		objFunc (int): 1, 2, or 3 to determine the function to use
+		paretoFront (list[list[float]]): the set of points forming the pareto Front
+		referencePoint (list[float]): the sink location or the previous point
+
+	Returns:
+		float | dict[tuple, float]: returns dictionary of distance to reach each node if objFunc = 1,
+  	sum of node transmission energy if objFunc = 2, and average RSSI value if objFunc = 3
+	"""
+	values = {}
+	if objFunc == 1:
+		for chromosome in paretoFront:
+			values[tuple(chromosome)] = objFunc1(referencePoint, chromosome)
+	elif objFunc == 2:
+		values = 0.0
+		for chromosome in paretoFront:
+			values += objFunc2(chromosome, referencePoint)
+
+	elif objFunc == 3:
+		values = 0.0
+		for chromosome in paretoFront:
+			values += objFunc3(chromosome, referencePoint)
+		values /= parameters["m"]
+	else:
+		return None
 
 
 def getCrowdingDistance(objFunc, paretoFront: list[list[float]], populationSize: int, geneCount: int) -> dict[tuple, float]:
