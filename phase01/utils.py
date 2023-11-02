@@ -2,7 +2,8 @@ import random, datetime
 
 class Chromosome:
     def __init__(self, geneCount:int, LB:float, UB:float) -> None:
-        self.genes = [random.random() * (UB-LB) + LB for _ in geneCount] 
+        self.genes = [random.random() * (UB-LB) + LB for _ in geneCount]
+        self.fitness = []
 
     def geneCount(self) -> int:
         return len(self.genes)
