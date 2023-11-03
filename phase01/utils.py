@@ -33,12 +33,12 @@ class Cluster:
 
 
 def generateSampleCluster(LB: float, UB: float, hasZ: bool=False) -> str:
-	file = "./clusters/sampleCluster_" + str(datetime.datetime.now().timestamp()).replace(".", "")
+	file = "./clusters/sampleCluster_" + str(datetime.datetime.now().timestamp()).replace(".", "") + ".csv"
 	with open(file, "w") as sampleCluster:
 		for _ in range(100):
 			x, y, z = LB + random.random() * (UB-LB), LB + random.random() * (UB-LB), 0
 			if hasZ:
 				z = LB + random.random() * (UB-LB)
-			sampleCluster.write(f"{x:>.3f}, {y:>.3f}, {z:>.3f}\n")
+			sampleCluster.write(f"{x:.3f}, {y:.3f}, {z:.3f}\n")
 	
 	return file
