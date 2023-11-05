@@ -1,9 +1,6 @@
 from sys import argv
 import random
-
-
-def getRandom(lowerBound: float, upperBound: float) -> float:
-    return lowerBound + random.random() * (upperBound - lowerBound)
+from utils import getRandom
 
 
 def generatePoints(cityCount: int, lowerBound: float, upperBound: float, filename: str) -> None:
