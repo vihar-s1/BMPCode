@@ -1,210 +1,140 @@
-import random
-from datetime import datetime
-from sys import argv
+import numpy as np
+import argparse
 from os import path
-import matplotlib.pyplot as plt
+from datetime import datetime
 
-from utils import clrscr, readCities, printMatrix, getDistanceMatrix
-
-
-INFINITY = 1E32
-
+from utils import readCities, plotPath, savePlot
 
 class Ant:
-    def __init__(self, startingCity: int, totalCities: int) -> None:
-        self.currentCity = startingCity  # the city in which ant currently is
-        self.totalCities = totalCities  # total number of cities in the network
-        self.route = list[tuple[int, int]]()  # edges the ant visits on its tour
-        self.visited = { startingCity }  # the cities ant already visited
+    def __init__(self, startPoint: int, totalPoints: int) -> None:
+        self.currentPoint = startPoint
+        self.visited = [False] * totalPoints
+        self.visited[startPoint] = True
+        self.path = [ startPoint ]
+        # self.pathLength = 0.0
+        self.totalPoints = totalPoints
         
-        
-    def pathComplete(self) -> bool:
-        return len(self.visited) == self.totalCities
+    def istourCompleted(self) -> bool:
+        return len(self.path) == self.totalPoints
     
+    def nextPoint(self, newPoint: int) -> bool:
+        if self.visited[newPoint] or self.istourCompleted():
+            return False
+        self.path.append(newPoint)
+        self.visited[newPoint] = True
+        self.currentPoint = newPoint
+        return True
     
-    def addNextCity(self, city) -> bool:
-        if not city in self.visited and not self.pathComplete():
-            self.route.append((self.currentCity, city))
-            self.currentCity = city
-            self.visited.add(city)
+    def returnHome(self) -> bool:
+        if self.istourCompleted():
+            self.path.append(self.path[0])
             return True
         return False
     
-    
-    def hasVisited(self, city: int) -> bool:
-        return city in self.visited
-    
-    
-    def pathLength(self, distMatrix: list[list[float]]) -> float:
-        pathLength = 0
-        for path in self.route:
-            pathLength += distMatrix[path[0]][path[1]]
-        return pathLength
+    def calculatePathLength(self, distance: np.ndarray[np.float64]) -> float: # type: ignore
+        self.pathLength = 0.0
         
-
+        for i in range(1, len(self.path)):
+            self.pathLength += distance[self.path[i-1], self.path[i]]
+        
+        return self.pathLength
+    
+    
 class AntSystem:
-    def __init__(self, antCount: int, cityCount: int, distMatrix: list[list[float]]) -> None:
+    def __init__(self, antCount: int, points: np.ndarray, initialPheromones: float=1.0) -> None:
+        self.totalPoints = len(points)
         self.antCount = antCount
-        self.cityCount = cityCount
+        self.points = points
         
-        self.bestRoute = []
-        self.bestRouteLength = INFINITY
+        self.pheromones = np.ones((self.totalPoints, self.totalPoints), dtype=np.float64) * initialPheromones
+        self.distance = np.ones((self.totalPoints, self.totalPoints), dtype=np.float64)
+        for i in range(self.totalPoints):
+            for j in range(self.totalPoints):
+                self.distance[i,j] = np.sqrt( np.sum( (points[i] - points[j])**2 ) )
         
-        if len(distMatrix) == cityCount:
-            for distRow in distMatrix:
-                if len(distRow) != cityCount:
-                    raise ValueError("distMatrix must be of size (cityCount, cityCount)")
+        self.bestPath = None
+        self.bestPathLength = np.inf
         
-        self.distMatrix = distMatrix
-        self.popSet = False # to check if population is set or not
+    def initializeAntPopulation(self) -> None:
+        self.population = [Ant(np.random.randint(self.totalPoints), self.totalPoints) for _ in range(self.antCount)]
         
-    
-    def initializePheromoneTrail(self, initialPheromone: float) -> None:
-        if initialPheromone <= 0:
-            raise ValueError(f"Initial Pheromone Level must be Positive. {initialPheromone} is invalid")
-        self.edgePheromone = [[initialPheromone for _ in range(self.cityCount)] for _ in range(self.cityCount)]
-        
-    
-    def resetAntPop(self) -> None:
-        self.popSet = True
-        self.population = [Ant(random.randint(0, self.cityCount - 1), self.cityCount) for _ in range(self.antCount)]
-        
-    
-    def constructRoute(self, alpha: float, beta: float) -> None:
-        if not self.popSet: 
-            return
-        
+    def constructRoutes(self, alpha: float, beta: float):
         for ant in range(self.antCount):
-            notVisited = set(range(self.cityCount)) - self.population[ant].visited
-            currentCity = self.population[ant].currentCity
-            
-            while not self.population[ant].pathComplete():
-                transitionProb = {}
-                for city in notVisited:
-                    transitionProb[city] = (self.edgePheromone[currentCity][city] ** alpha) * (self.distMatrix[currentCity][city] ** -beta)
+            while not self.population[ant].istourCompleted():
+                unvisited = np.where(np.logical_not(self.population[ant].visited))[0]
+                currentPoint = self.population[ant].currentPoint
                 
-                tot = sum(transitionProb.values())
-                # if tot != 0:
-                #     for key in transitionProb.keys():
-                #         transitionProb[key] /= tot
-                if tot == 0:
-                    for key in transitionProb.keys():
-                        transitionProb[key] = 1.0
+                transitionProb = np.zeros(len(unvisited), dtype=np.float64)
+                for i, point in enumerate(unvisited):
+                    transitionProb[i] = ( self.pheromones[currentPoint, point] ** alpha ) / ( self.distance[currentPoint, point] ** beta )
                 
-                nextCity = random.choices(population=list(transitionProb.keys()), weights=list(transitionProb.values()))[0]
-                if self.population[ant].addNextCity(nextCity):
-                    currentCity = nextCity
-                    notVisited.remove(nextCity)
-        
+                transitionProb /= np.sum(transitionProb)
+                nextPoint = np.random.choice(unvisited, p=transitionProb)
+                self.population[ant].nextPoint(nextPoint)
             
-        self.antRouteLength = [ self.population[i].pathLength(self.distMatrix) for i in range(self.antCount) ]
-        
-        
-    def updateBestPath(self) -> None:
-        for i in range(self.antCount):
-            if self.antRouteLength[i] < self.bestRouteLength:
-                self.bestRoute = self.population[i].route
-                self.bestRouteLength = self.antRouteLength[i]
+            # returning home/starting-point
+            self.population[ant].returnHome()
+            
+            pathLength = self.population[ant].calculatePathLength(self.distance)
+            if pathLength < self.bestPathLength:
+                self.bestPathLength = pathLength
+                self.bestPath = self.population[ant].path
                 
-    
-    def updatePheromone(self, evaporationRate: float, scaleFactor:float) -> None:
-        if not 0 < evaporationRate < 1:
-            raise FloatingPointError(f"EvaporationRate = {evaporationRate} outside of range (0,1)")
-        
-        # Performing pheromone evaporation
-        self.edgePheromone = [[(1-evaporationRate) * self.edgePheromone[i][j] for j in range(self.cityCount)] for i in range(self.cityCount) ]
-        
-        # Pheromone released by the ants over the path
-        for i in range(self.antCount):
-            for path in self.population[i].route:
-                self.edgePheromone[path[0]][path[1]] += scaleFactor * (self.antRouteLength[i] ** -1)
-        
-    
-    def runSimulation(self, initialPheromone: float, alpha: float, beta: float, evaporationRate: float=0.2, Tmax: int=10_000, pheromonScaleFactor:float=50, debug: bool=False) -> None:
-        if initialPheromone <= 0:
-            raise ValueError(f"Initial Pheromone Level must be Positive. {initialPheromone} is invalid")
-        if not 0 < evaporationRate < 1:
-            raise FloatingPointError(f"EvaporationRate = {evaporationRate} outside of range (0,1)")
-        
-        if debug: print("Initializing Pheromone Trail...")
-        self.initializePheromoneTrail(initialPheromone)
-        
-        if debug: print("Running Iterations...")
-        
-        for t in range(Tmax):
-            if debug: print("Iteration:", t)
+    def updatePheromones(self, evaporationRate: float, pheromoneScaleFactor: float) -> None:
+        self.pheromones *= (1 - evaporationRate)
+        for ant in range(self.antCount):
+            path = self.population[ant].path
             
-            if debug: print("Setting Ants at starting Position...")
-            self.resetAntPop()
+            pathLength = self.population[ant].pathLength
+            for i in range(1,self.totalPoints):
+                self.pheromones[path[i-1], path[i]] += pheromoneScaleFactor/pathLength
+            # Back to home
+            self.pheromones[path[-1], path[0]] += pheromoneScaleFactor/pathLength
+        
+    def simulate(self, maxIterations:int, alpha:float, beta:float, evaporationRate: float, pheromoneScaleFactor:float, debug:bool=False) -> None:
+        for i in range(maxIterations):
+            if debug: print("Iteration:", i)
             
+            if debug: print("Initializing Ant Population...")
+            self.initializeAntPopulation()
             if debug: print("Constructing Routes...")
-            self.constructRoute(alpha, beta)
-            
-            if debug: 
-                print("Smallest Route Created:", min(self.antRouteLength))
-                print("Updating Best Path...")
-            self.updateBestPath()
-            
-            if debug: 
-                print(f"Shortes Length: {self.bestRouteLength}")
-                print(self.bestRoute)
+            self.constructRoutes(alpha, beta)
+            if debug:
+                print("Best Path Length:", self.bestPathLength)
                 print("Updating Pheromones...")
-            self.updatePheromone(evaporationRate, pheromonScaleFactor)
-            if debug: clrscr()
-                    
-        if debug: print("Simulation Complete")
-     
-
-
-def plotPathPoints(cities: list[tuple[float, float]], path: list[tuple[int, int]]) -> None:
-    citiesX, citiesY = [cities[path[0][0]][0]], [cities[path[0][0]][1]]
-    for edge in path:
-        citiesX.append(cities[edge[1]][0])
-        citiesY.append(cities[edge[1]][1])
-    
-    plt.title("Shortest Path by A.S. Algorithm")
-    plt.xlabel("X co-ordinate")
-    plt.ylabel("Y co-ordinate")
-    plt.scatter([city[0] for city in cities], [city[1] for city in cities])
-    plt.plot(citiesX, citiesY)
-    # for i in range(len(cities)):
-    #     plt.annotate(f"{i}", cities[i])
-    
-    plt.show()
+            self.updatePheromones(evaporationRate, pheromoneScaleFactor)
 
 
 def __main__():
-    if len(argv) < 2 or len(argv) > 4:
-        print(f"usage: f{argv[0]} <filepath> [debug]\n<filepath>: filepath for the city coordinates\n[debug]: constant to enable debugging statements")
-        exit(1)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-f", dest="filename", help="Filepath for the file containing city coordinates", required=True)
+    parser.add_argument("--debug", dest="debug", action="store_true", help="Flag to enable print statements")
+    parser.add_argument("--saveplot", dest="saveplot", help="Save plots instead of displaying them")
+
+    args = parser.parse_args()
     
-    if not path.isfile(argv[1]):
-        print(f"{argv[1]}: Not A File")
+    if not path.isfile(args.filename):
+        print(f"{args.filename}: File Does Not Exist!")
     
-    cities = readCities(argv[1])
-    distanceMatrix = getDistanceMatrix(cities)
-    
-    debug = len(argv) == 3 and argv[2] == "debug"
-    AS = AntSystem(100, len(cities), distanceMatrix)
+    points = readCities(args.filename)
     
     start = datetime.now()
-    try:
-        AS.runSimulation(initialPheromone=10, alpha=1, beta=5, evaporationRate=0.1, Tmax=10_000, pheromonScaleFactor=50, debug=debug)
-    except Exception as eobj:
-        print(eobj)
+    AS = AntSystem(antCount=10, points=points, initialPheromones=10.0)
+    AS.simulate(maxIterations=100, alpha=1, beta=1, evaporationRate=0.36, pheromoneScaleFactor=200.0, debug=args.debug)
     end = datetime.now()
+    print("run-time:", end - start)
     
-    with open(argv[1] + ".output", "w") as outputFile:
-        for edge in AS.bestRoute:
-            outputFile.write(f"{edge[0]},{edge[1]}\n")
-            
-    delta = end - start
-    print(AS.bestRoute)
-    print(AS.bestRouteLength)
-    print(delta)
+    bestPath = AS.bestPath
+    bestPathLength = AS.bestPathLength
+    print("Best Path:", bestPath)
+    print("Best Path Length:", bestPathLength)
     
-    # plotPathPoints(cities, AS.bestRoute)  
-    
-    
+    if bestPath:
+        if args.saveplot:
+            savePlot(points, bestPath, args.saveplot)
+        else:
+            plotPath(points, bestPath)
+
+
 if __name__ == "__main__":
     __main__()
