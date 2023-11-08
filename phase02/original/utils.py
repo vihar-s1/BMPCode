@@ -4,6 +4,7 @@ import random
 from sys import platform
 from os import system
 
+
 def getRandom(lowerBound: float, upperBound: float) -> float:
     return lowerBound + random.random() * (upperBound - lowerBound)
 
@@ -13,31 +14,44 @@ def clrscr():
         system("cls")
     else:
         system("clear")
-       
 
-def readCities(filepath: str) -> np.ndarray[np.dtype[np.float64]]: #type: ignore
+
+def readPoints(filepath: str) -> np.ndarray[np.dtype[np.float64]]:  # type: ignore
     with open(filepath, "r") as data:
-        cities = data.readlines()
-        cities = [ tuple(map(float, city.split(","))) for city in cities ]
-    
-    return np.array(cities)
+        points = data.readlines()
+        points = [tuple(map(float, city.split(","))) for city in points]
+
+    return np.array(points)
 
 
 def plotPath(points: np.ndarray, path: list[int]) -> None:
-    plt.grid(visible=True)
-    plt.scatter(points[path][:,0], points[path][:,1])
-    plt.plot(points[path][:,0], points[path][:,1])
-    plt.xlabel("x coordinates")
-    plt.ylabel("y coordinates")
+    fig = plt.figure()
+    
+    axes = plt.axes(projection="3d")
+    fig.add_axes(axes)
+    axes.plot(points[path][:,0], points[path][:,1], points[path][:,2])
+    axes.set_xlabel("X-Coordinate")
+    axes.set_ylabel("Y-Coordinate")
+    axes.set_zlabel("Z-Coordinate")
+    
     plt.show()
 
 
 def savePlot(points: np.ndarray, path: list[int], filename: str) -> None:
-    plt.grid(visible=True)
-    pointpath = points[path]
-    plt.scatter(pointpath[:,0], pointpath[:,1])
-    plt.plot(pointpath[:,0], pointpath[:,1])
-    plt.xlabel("x coordinates")
-    plt.ylabel("y coordinates")
+    fig = plt.figure()
+    axes = plt.axes(projection="3d")
+    fig.add_axes(axes)
+    axes.plot(points[path][:,0], points[path][:,1], points[path][:,2])
+    axes.set_xlabel("X-Coordinate")
+    axes.set_ylabel("Y-Coordinate")
+    axes.set_zlabel("Z-Coordinate")
+    fig.savefig(filename)
+
+
+def saveIterationPlot(data: list, dataLabel: str, filename) -> None:
+    plt.close()
+    plt.grid()
+    plt.plot(data)
+    plt.xlabel("Iterations")
+    plt.ylabel(dataLabel)
     plt.savefig(filename)
-    
