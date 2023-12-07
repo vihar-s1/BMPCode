@@ -55,3 +55,9 @@ def saveIterationPlot(data: list, dataLabel: str, filename) -> None:
     plt.xlabel("Iterations")
     plt.ylabel(dataLabel)
     plt.savefig(filename)
+
+
+def plotweights(data, weights) -> None:
+    plt.close()
+    plt.grid()
+    
