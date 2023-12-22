@@ -64,18 +64,14 @@ def printMatrix(mat: list[list[float]]) -> None:
         print()
 
 
-def plotweights(data: np.ndarray, weights: np.ndarray, widthFactor: int, START: int, END: int) -> None:
+def plotweights(data: np.ndarray, weights: np.ndarray, widthFactor: int) -> None:
     plt.close()
     plt.scatter(data[:,0],data[:,1])
-    plt.scatter(data[START,0], data[START,1])
-    plt.scatter(data[END,0], data[END,1])
-
     totalPoints = len(data)
     for i in range(totalPoints):
         for j in range(totalPoints):
-            if float(f"{weights[i][j]:.2f}") != 0:
+            if float(f"{weights[i][j]:.4f}") != 0:
                 plt.plot([data[i,0], data[j,0]], [data[i,1], data[j,1]])
-                
     plt.grid()
     plt.show()
     
