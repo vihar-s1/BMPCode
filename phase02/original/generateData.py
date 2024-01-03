@@ -35,7 +35,7 @@ def __main__():
     else:
         for i in range(int(args.datasetCount)):
             # generate 30-50 points located in squared area of side-length 100-200 m
-            generatePoints(random.randint(30,50), 0, random.random() * 100 + 100, f"data/points2D_{i:03d}.csv")
+            generatePoints(random.randint(10,20), 0, random.random() * 100 + 100, f"data/points2D_{i:03d}.csv")
 
 if __name__ == "__main__":
     __main__()

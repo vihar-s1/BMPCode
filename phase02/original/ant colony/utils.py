@@ -24,7 +24,7 @@ def readPoints(filepath: str) -> np.ndarray[np.dtype[np.float64]]:  # type: igno
     return np.array(points)
 
 
-def plotPath(points: np.ndarray, path: list[int]) -> None:
+def plot3DPath(points: np.ndarray, path: list[int]) -> None:
     fig = plt.figure()
     
     axes = plt.axes(projection="3d")
@@ -37,14 +37,34 @@ def plotPath(points: np.ndarray, path: list[int]) -> None:
     plt.show()
 
 
-def savePlot(points: np.ndarray, path: list[int], filename: str) -> None:
+def plot2DPath(points: np.ndarray, path: list[int]) -> None:
     fig = plt.figure()
-    axes = plt.axes(projection="3d")
+    axes = plt.axes()
     fig.add_axes(axes)
-    axes.plot(points[path][:,0], points[path][:,1], points[path][:,2])
+    axes.plot(points[path][:,0], points[path][:,1])
     axes.set_xlabel("X-Coordinate")
     axes.set_ylabel("Y-Coordinate")
-    axes.set_zlabel("Z-Coordinate")
+    
+    plt.show()
+
+
+def savePlot(points: np.ndarray, path: list[int], filename: str) -> None:
+    fig = plt.figure()
+    if points.shape[1] == 3:
+        axes = plt.axes(projection="3d")
+        axes.grid(visible=True)
+        fig.add_axes(axes)
+        axes.plot(points[path][:,0], points[path][:,1], points[path][:,2])
+        axes.set_xlabel("X-Coordinate")
+        axes.set_ylabel("Y-Coordinate")
+        axes.set_zlabel("Z-Coordinate")
+    else:
+        axes = plt.axes()
+        axes.grid(visible=True)
+        fig.add_axes(axes)
+        axes.plot(points[path][:,0], points[path][:,1])
+        axes.set_xlabel("X-Coordinate")
+        axes.set_ylabel("Y-Coordinate")
     fig.savefig(filename)
 
 

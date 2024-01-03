@@ -10,6 +10,17 @@ from utils import readPoints, plotweights, printMatrix
 def gammaFunc(a: float, b: float, c: float, T: int, t: int) -> float:
     return a * (1 - ( a/(a-b) + (c*exp(1))**(T-t) )**-1)
 
+def getRowToDelete(matrix: np.ndarray, startPoint: int, endPoint: int) -> int:
+    totalPoints = np.size(matrix, 1)
+    
+    for deleteRow in range(totalPoints):
+        if deleteRow in [startPoint, endPoint]: continue
+        newMat = np.delete(matrix, deleteRow, 0)
+        if np.linalg.det(newMat) != 0:
+            return deleteRow
+    
+    return startPoint
+
 class PressureCoeffSingular(Exception):
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
@@ -52,32 +63,8 @@ class SlimeMould:
         netFlux = np.zeros(self.totalPoints)
         netFlux[self.startPoint] = -self.totalFlux
         netFlux[self.endPoint] = self.totalFlux
-        
-        try:
-            pressure = netFlux @ np.linalg.inv(self.pressureCoeff)
-            self.pressure = pressure
-        except np.linalg.LinAlgError as eobj:
-            print(f"{eobj.__class__.__name__}: {eobj}: {self.startPoint, self.endPoint}")
-            #. Since Pressure Coeff is a singular matrix, We use reference pressure (Pexit = 0) to calculate the pressure
-            # Delete the corresponding column from PressureCoeff matrix.
-            self.pressureCoeff = np.delete(self.pressureCoeff, self.endPoint, 1)
-            
-            # Deleting any random row which does not correspond to entry or exit node total flux
-            # to ensure make it a square matrix. PressureCoeff will not be singular anymore
-            #! Improve delete row selection process
-            #! Code should not lead the sub-matrix to be a singular matrix
-            deleteRow = np.random.choice([i for i in range(self.totalPoints) if i != self.startPoint and i != self.endPoint])
-            #! ------------------------------------- !#
-            
-            netFlux = np.zeros(self.totalPoints)
-            netFlux[self.startPoint] = -self.totalFlux
-            netFlux[self.endPoint] = self.totalFlux
-            
-            self.pressureCoeff = np.delete(self.pressureCoeff, deleteRow, 0)
-            netFlux = np.delete(netFlux, deleteRow, 0)
-            self.pressure = netFlux @ np.linalg.inv(self.pressureCoeff)
-            # Add the endPoint Pressure (Reference Pressure) back that was removed at the beginning
-            self.pressure = np.insert(self.pressure, self.endPoint, 0, 0)   
+    
+        self.pressure = np.linalg.lstsq(self.pressureCoeff, netFlux, rcond=None)[0]
             
     
     def calculateFlux(self) -> None:
@@ -94,15 +81,19 @@ class SlimeMould:
         self.conductivity = fluxInfluence * self.flux + (1 - contractionRate) * self.conductivity
             
     
-    def simulate(self, maxIterations: int, fluxInfluence: float, minContractionRate: float, maxContractionRate: float, transitionRate: float) -> None:
+    def simulate(self, maxIterations: int, fluxInfluence: float, minContractionRate: float, maxContractionRate: float, transitionRate: float, debug: bool=False) -> None:
         T = maxIterations / 3
+        if debug: print("Initiating Simulation...")
         for t in range(maxIterations):
+            if debug: print(f"Iteration No. {t}")
             self.calculatePressure()
             self.calculateFlux()
             
             # gamma = a[ 1 - 1/[a/(a-b) + (ce)^(T-t)] ]
             contractionRate = gammaFunc(minContractionRate, maxContractionRate, transitionRate, T, t)
             self.updateConductivity(contractionRate, fluxInfluence)
+            print(f"Total Node Flux: {self.flux.sum()}")
+                
 
 
 class MultiStateSlimeMould:
@@ -150,6 +141,8 @@ class MultiStateSlimeMould:
             # Update the netEdgeFlux
             # Qij(t) = sum^{N(N-1)/2}_{k=1} (Qij^m(t))
             self.netEdgeFlux += self.subSystems[i].flux
+            if self.subSystems[i].flux.shape != (self.totalPoints, self.totalPoints):
+                print(f"({self.subSystems[i].startPoint}, {self.subSystems[i].endPoint}): Size note matching: size = {self.subSystems[i].flux.shape}, expected = ({self.totalPoints}, {self.totalPoints})")
         
         self.iterationCleared += 1
         return True
@@ -181,12 +174,13 @@ def __SlimeMoldSim__():
     
     start = datetime.now()
     sma = SlimeMould(points, 0, len(points)-1, 100.0, 200.0)
-    sma.simulate(1000, 10.5, 0.2, 0.7, 1.2)
+    sma.simulate(1000, 10.5, 0.2, 0.7, 1.2, args.debug)
     end = datetime.now()
     print(end - start)
     
-    printMatrix(sma.flux)
-    plotweights(points, sma.flux, 3, sma.startPoint, sma.endPoint)
+    flux = sma.flux
+    print(flux.sum())
+    plotweights(points, sma.flux, 10, sma.startPoint, sma.endPoint)
 
 
 def __SSMSim__():
@@ -209,10 +203,10 @@ def __SSMSim__():
     end = datetime.now()
     print(end - start)
     
-    printMatrix(mssm.netEdgeFlux)
-    plotweights(points, mssm.netEdgeFlux, 3, 0, 0)
+    print(mssm.netEdgeFlux.sum())
+    plotweights(points, mssm.netEdgeFlux, 10, 0, 0)
     
 
 if __name__ == "__main__":
-    # __SlimeMoldSim__()
-    __SSMSim__()
+    __SlimeMoldSim__()
+    # __SSMSim__()

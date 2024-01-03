@@ -64,17 +64,24 @@ def printMatrix(mat: list[list[float]]) -> None:
         print()
 
 
+def rescale(minVal, maxVal, factor, val):
+    a = factor / (maxVal - minVal)
+    b = -minVal * a
+    return a * val + b
+
 def plotweights(data: np.ndarray, weights: np.ndarray, widthFactor: int, START: int, END: int) -> None:
     plt.close()
     plt.scatter(data[:,0],data[:,1])
     plt.scatter(data[START,0], data[START,1])
     plt.scatter(data[END,0], data[END,1])
 
+    minVal, maxVal = weights.min(), weights.max()
     totalPoints = len(data)
     for i in range(totalPoints):
         for j in range(totalPoints):
-            if float(f"{weights[i][j]:.2f}") != 0:
-                plt.plot([data[i,0], data[j,0]], [data[i,1], data[j,1]])
+            # if float(f"{weights[i][j]:.1f}") != 0:
+            if weights[i][j] != 0:
+                plt.plot([data[i,0], data[j,0]], [data[i,1], data[j,1]], linewidth=rescale(minVal, maxVal, widthFactor, weights[i,j]))
                 
     plt.grid()
     plt.show()

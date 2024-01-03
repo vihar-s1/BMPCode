@@ -3,7 +3,7 @@ import argparse
 from os import path
 from datetime import datetime
 
-from utils import readPoints, plotPath, savePlot, clrscr, saveIterationPlot
+from utils import readPoints, plot2DPath, plot3DPath, savePlot, clrscr, saveIterationPlot
 
 
 class Ant:
@@ -143,8 +143,10 @@ def __main__():
     if bestPath:
         if args.saveplot:
             savePlot(points, bestPath, args.saveplot)
+        elif points.shape[1] == 3: # 3D points
+            plot3DPath(points, bestPath)
         else:
-            plotPath(points, bestPath)
+            plot2DPath(points, bestPath)
 
     if args.plotIterations:
         saveIterationPlot(pathLength, "Path Length", args.plotIterations)
